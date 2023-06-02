@@ -1,2 +1,3 @@
-# Vulkano3DModelViewer
-A basic 3D model viewer implemented in Rust and Vulkano
+# 3D Model Viewer in Vulkano
+
+A basic 3D model viewer to be implemented in Rust and Vulkano
