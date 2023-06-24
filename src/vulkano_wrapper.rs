@@ -19,7 +19,7 @@ use vulkano::format::Format;
 use vulkano::image::view::ImageView;
 use vulkano::image::{AttachmentImage, ImageAccess, ImageUsage, SwapchainImage};
 use vulkano::instance::{Instance, InstanceCreateInfo};
-use vulkano::memory::allocator::{AllocationCreateInfo, MemoryUsage, StandardMemoryAllocator};
+use vulkano::memory::allocator::{AllocationCreateInfo, MemoryUsage};
 use vulkano::pipeline::graphics::depth_stencil::DepthStencilState;
 use vulkano::pipeline::graphics::input_assembly::InputAssemblyState;
 use vulkano::pipeline::graphics::vertex_input::Vertex;
@@ -39,6 +39,9 @@ use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::Window;
 
 use crate::shader::vs;
+use memory_allocator::MemoryAllocator;
+
+pub mod memory_allocator;
 
 #[derive(BufferContents, Vertex)]
 #[repr(C)]
@@ -157,16 +160,12 @@ pub fn create_swapchain(
     .unwrap()
 }
 
-fn get_standard_memory_allocator(device: Arc<Device>) -> StandardMemoryAllocator {
-    StandardMemoryAllocator::new_default(device.clone())
-}
-
 pub fn create_vertex_buffer(
-    device: Arc<Device>,
     vertices: Vec<CustomVertex>,
+    memory_allocator: &MemoryAllocator,
 ) -> Subbuffer<[CustomVertex]> {
     Buffer::from_iter(
-        &get_standard_memory_allocator(device.clone()),
+        &memory_allocator.standard,
         BufferCreateInfo {
             usage: BufferUsage::VERTEX_BUFFER,
             ..Default::default()
@@ -180,9 +179,12 @@ pub fn create_vertex_buffer(
     .unwrap()
 }
 
-pub fn create_index_buffer(device: Arc<Device>, indices: Vec<u16>) -> Subbuffer<[u16]> {
+pub fn create_index_buffer(
+    indices: Vec<u16>,
+    memory_allocator: &MemoryAllocator,
+) -> Subbuffer<[u16]> {
     Buffer::from_iter(
-        &get_standard_memory_allocator(device.clone()),
+        &memory_allocator.standard,
         BufferCreateInfo {
             usage: BufferUsage::INDEX_BUFFER,
             ..Default::default()
@@ -225,22 +227,21 @@ fn get_color_buffer(image: Arc<SwapchainImage>) -> Arc<ImageView<SwapchainImage>
     ImageView::new_default(image).unwrap()
 }
 
-fn get_depth_buffer(device: Arc<Device>, dimensions: [u32; 2]) -> Arc<ImageView<AttachmentImage>> {
+fn get_depth_buffer(
+    dimensions: [u32; 2],
+    memory_allocator: &MemoryAllocator,
+) -> Arc<ImageView<AttachmentImage>> {
     ImageView::new_default(
-        AttachmentImage::transient(
-            &get_standard_memory_allocator(device),
-            dimensions,
-            Format::D16_UNORM,
-        )
-        .unwrap(),
+        AttachmentImage::transient(&memory_allocator.standard, dimensions, Format::D16_UNORM)
+            .unwrap(),
     )
     .unwrap()
 }
 
 pub fn get_framebuffers(
-    device: Arc<Device>,
     images: &[Arc<SwapchainImage>],
     render_pass: &Arc<RenderPass>,
+    memory_allocator: &MemoryAllocator,
 ) -> Vec<Arc<Framebuffer>> {
     images
         .iter()
@@ -250,7 +251,7 @@ pub fn get_framebuffers(
                 FramebufferCreateInfo {
                     attachments: vec![
                         get_color_buffer(image.clone()),
-                        get_depth_buffer(device.clone(), images[0].dimensions().width_height())
+                        get_depth_buffer(images[0].dimensions().width_height(), memory_allocator)
                             .clone(),
                     ],
                     ..Default::default()
@@ -355,6 +356,7 @@ pub fn run_event_loop(
     index_buffer: Subbuffer<[u16]>,
     mut pipeline: Arc<GraphicsPipeline>,
     mut framebuffers: Vec<Arc<Framebuffer>>,
+    memory_allocator: MemoryAllocator,
 ) {
     let mut recreate_swapchain = false;
     let mut previous_frame_end = Some(sync::now(device.clone()).boxed());
@@ -385,7 +387,7 @@ pub fn run_event_loop(
                     Err(e) => panic!("Failed to recreate swapchain: {e}"),
                 };
                 swapchain = new_swapchain;
-                framebuffers = get_framebuffers(device.clone(), &new_images, &render_pass);
+                framebuffers = get_framebuffers(&new_images, &render_pass, &memory_allocator);
 
                 viewport.dimensions = get_window(&surface).inner_size().into();
                 pipeline = get_pipeline(
@@ -413,7 +415,7 @@ pub fn run_event_loop(
                 );
                 let scale = Matrix4::from_scale(1.0);
                 let uniform_buffer = SubbufferAllocator::new(
-                    get_standard_memory_allocator(device.clone()),
+                    memory_allocator.standard.clone(),
                     SubbufferAllocatorCreateInfo {
                         buffer_usage: BufferUsage::UNIFORM_BUFFER,
                         ..Default::default()
