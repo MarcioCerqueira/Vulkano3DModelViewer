@@ -4,12 +4,10 @@ use std::sync::Arc;
 
 use vulkano::buffer::allocator::{SubbufferAllocator, SubbufferAllocatorCreateInfo};
 use vulkano::buffer::{Buffer, BufferContents, BufferCreateInfo, BufferUsage, Subbuffer};
-use vulkano::command_buffer::allocator::StandardCommandBufferAllocator;
 use vulkano::command_buffer::{
     AutoCommandBufferBuilder, CommandBufferUsage, PrimaryAutoCommandBuffer, RenderPassBeginInfo,
     SubpassContents,
 };
-use vulkano::descriptor_set::allocator::StandardDescriptorSetAllocator;
 use vulkano::descriptor_set::{PersistentDescriptorSet, WriteDescriptorSet};
 use vulkano::device::physical::{PhysicalDevice, PhysicalDeviceType};
 use vulkano::device::{
@@ -282,18 +280,16 @@ pub fn get_pipeline(
 }
 
 pub fn get_command_buffer(
-    device: Arc<Device>,
     queue: &Arc<Queue>,
     pipeline: &Arc<GraphicsPipeline>,
     framebuffer: &Arc<Framebuffer>,
     vertex_buffer: &Subbuffer<[CustomVertex]>,
     index_buffer: &Subbuffer<[u16]>,
     set: &Arc<PersistentDescriptorSet>,
+    memory_allocator: &MemoryAllocator,
 ) -> Arc<PrimaryAutoCommandBuffer> {
-    let command_buffer_allocator =
-        StandardCommandBufferAllocator::new(device.clone(), Default::default());
     let mut builder = AutoCommandBufferBuilder::primary(
-        &command_buffer_allocator,
+        &memory_allocator.command_buffer,
         queue.queue_family_index(),
         CommandBufferUsage::MultipleSubmit,
     )
@@ -432,9 +428,8 @@ pub fn run_event_loop(
             };
 
             let layout = pipeline.layout().set_layouts().get(0).unwrap();
-            let descriptor_set_allocator = StandardDescriptorSetAllocator::new(device.clone());
             let set = PersistentDescriptorSet::new(
-                &descriptor_set_allocator,
+                &memory_allocator.descriptor_set,
                 layout.clone(),
                 [WriteDescriptorSet::buffer(0, uniform_buffer_subbuffer)],
             )
@@ -455,13 +450,13 @@ pub fn run_event_loop(
             }
 
             let command_buffer = get_command_buffer(
-                device.clone(),
                 &queue,
                 &pipeline,
                 &framebuffers[image_i as usize],
                 &vertex_buffer,
                 &index_buffer,
                 &set.clone(),
+                &memory_allocator,
             );
 
             let future = previous_frame_end

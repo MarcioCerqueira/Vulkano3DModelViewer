@@ -13,10 +13,10 @@ fn main() {
         .build_vk_surface(&event_loop, instance.clone())
         .unwrap();
     let (physical_device, device, queue) = vulkano_wrapper::instantiate_device(&instance, &surface);
-    let memory_allocator = vulkano_wrapper::memory_allocator::new(device.clone());
     let (swapchain, images) =
         vulkano_wrapper::create_swapchain(&device, &physical_device, &surface);
     let render_pass = vulkano_wrapper::get_render_pass(device.clone(), &swapchain);
+    let memory_allocator = vulkano_wrapper::memory_allocator::new(device.clone());
     let framebuffers = vulkano_wrapper::get_framebuffers(&images, &render_pass, &memory_allocator);
 
     let (vertex_shader, fragment_shader) = shader::load(device.clone());
