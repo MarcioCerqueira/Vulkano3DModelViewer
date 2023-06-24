@@ -1,21 +1,28 @@
+use obj::{load_obj, Obj};
+use std::fs::File;
+use std::io::BufReader;
+
 use crate::vulkano_wrapper::CustomVertex;
+
 pub struct Model {
     pub vertices: Vec<CustomVertex>,
+    pub indices: Vec<u16>,
 }
 
 impl Model {
-    pub fn new() -> Model {
-        let vertex1 = CustomVertex {
-            position: [-0.5, -0.5],
-        };
-        let vertex2 = CustomVertex {
-            position: [0.0, 0.5],
-        };
-        let vertex3 = CustomVertex {
-            position: [0.5, -0.25],
-        };
+    pub fn new(filename: &str) -> Model {
+        let file = BufReader::new(File::open(filename).expect("Failed to read model!"));
+        let mesh: Obj = load_obj(file).expect("Failed to load OBJ file");
         Model {
-            vertices: vec![vertex1, vertex2, vertex3],
+            vertices: mesh
+                .vertices
+                .iter()
+                .map(|vertex| CustomVertex {
+                    position: vertex.position,
+                    normal: vertex.normal,
+                })
+                .collect(),
+            indices: mesh.indices,
         }
     }
 }

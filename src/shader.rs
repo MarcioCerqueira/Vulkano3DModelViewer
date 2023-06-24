@@ -8,10 +8,13 @@ mod vs {
         src: "
             #version 460
 
-            layout(location = 0) in vec2 position;
+            layout(location = 0) in vec3 position;
+            layout(location = 1) in vec3 normal;
             
+            layout(location = 0) out vec3 fragNormal;
             void main() {
-                gl_Position = vec4(position, 0.0, 1.0);
+                gl_Position = vec4(position, 1.0);
+                fragNormal = normal;
             }
         "
     }
@@ -23,10 +26,11 @@ mod fs {
         src: "
             #version 460
 
-            layout(location = 0) out vec4 f_color;
+            layout(location = 0) in vec3 fragNormal;
+            layout(location = 0) out vec4 outColor;
             
             void main() {
-                f_color = vec4(1.0, 0.0, 0.0, 1.0);
+                outColor = vec4(fragNormal, 1.0);
             }
         "
     }

@@ -12,9 +12,10 @@ use vulkano::device::{
 };
 use vulkano::format::Format;
 use vulkano::image::view::ImageView;
-use vulkano::image::{ImageUsage, SwapchainImage};
+use vulkano::image::{AttachmentImage, ImageAccess, ImageUsage, SwapchainImage};
 use vulkano::instance::{Instance, InstanceCreateInfo};
 use vulkano::memory::allocator::{AllocationCreateInfo, MemoryUsage, StandardMemoryAllocator};
+use vulkano::pipeline::graphics::depth_stencil::DepthStencilState;
 use vulkano::pipeline::graphics::input_assembly::InputAssemblyState;
 use vulkano::pipeline::graphics::vertex_input::Vertex;
 use vulkano::pipeline::graphics::viewport::{Viewport, ViewportState};
@@ -36,8 +37,10 @@ use winit::window::Window;
 #[derive(BufferContents, Vertex)]
 #[repr(C)]
 pub struct CustomVertex {
-    #[format(R32G32_SFLOAT)]
-    pub position: [f32; 2],
+    #[format(R32G32B32_SFLOAT)]
+    pub position: [f32; 3],
+    #[format(R32G32B32_SFLOAT)]
+    pub normal: [f32; 3],
 }
 
 fn get_device_extensions() -> DeviceExtensions {
@@ -147,12 +150,16 @@ pub fn create_swapchain(
     .unwrap()
 }
 
+fn get_standard_memory_allocator(device: Arc<Device>) -> StandardMemoryAllocator {
+    StandardMemoryAllocator::new_default(device.clone())
+}
+
 pub fn create_vertex_buffer(
     device: Arc<Device>,
     vertices: Vec<CustomVertex>,
 ) -> Subbuffer<[CustomVertex]> {
     Buffer::from_iter(
-        &StandardMemoryAllocator::new_default(device.clone()),
+        &get_standard_memory_allocator(device.clone()),
         BufferCreateInfo {
             usage: BufferUsage::VERTEX_BUFFER,
             ..Default::default()
@@ -162,6 +169,22 @@ pub fn create_vertex_buffer(
             ..Default::default()
         },
         vertices,
+    )
+    .unwrap()
+}
+
+pub fn create_index_buffer(device: Arc<Device>, indices: Vec<u16>) -> Subbuffer<[u16]> {
+    Buffer::from_iter(
+        &get_standard_memory_allocator(device.clone()),
+        BufferCreateInfo {
+            usage: BufferUsage::INDEX_BUFFER,
+            ..Default::default()
+        },
+        AllocationCreateInfo {
+            usage: MemoryUsage::Upload,
+            ..Default::default()
+        },
+        indices,
     )
     .unwrap()
 }
@@ -176,27 +199,53 @@ pub fn get_render_pass(device: Arc<Device>, swapchain: &Arc<Swapchain>) -> Arc<R
                 format: swapchain.image_format(),
                 samples: 1
             },
+            depth_stencil: {
+                load: Clear,
+                store: DontCare,
+                format: Format::D16_UNORM,
+                samples: 1,
+            },
         },
         pass: {
             color: [color],
-            depth_stencil: {},
+            depth_stencil: {depth_stencil},
         },
     )
     .unwrap()
 }
 
+fn get_color_buffer(image: Arc<SwapchainImage>) -> Arc<ImageView<SwapchainImage>> {
+    ImageView::new_default(image).unwrap()
+}
+
+fn get_depth_buffer(device: Arc<Device>, dimensions: [u32; 2]) -> Arc<ImageView<AttachmentImage>> {
+    ImageView::new_default(
+        AttachmentImage::transient(
+            &get_standard_memory_allocator(device),
+            dimensions,
+            Format::D16_UNORM,
+        )
+        .unwrap(),
+    )
+    .unwrap()
+}
+
 pub fn get_framebuffers(
+    device: Arc<Device>,
     images: &[Arc<SwapchainImage>],
     render_pass: &Arc<RenderPass>,
 ) -> Vec<Arc<Framebuffer>> {
     images
         .iter()
         .map(|image| {
-            let view = ImageView::new_default(image.clone()).unwrap();
             Framebuffer::new(
                 render_pass.clone(),
                 FramebufferCreateInfo {
-                    attachments: vec![view],
+                    attachments: vec![
+                        get_color_buffer(image.clone()),
+                        get_depth_buffer(device.clone(), images[0].dimensions().width_height())
+                            .clone(),
+                    ],
                     ..Default::default()
                 },
             )
@@ -213,10 +262,11 @@ pub fn get_pipeline(
     viewport: Viewport,
 ) -> Arc<GraphicsPipeline> {
     GraphicsPipeline::start()
-        .vertex_input_state(CustomVertex::per_vertex())
+        .vertex_input_state([CustomVertex::per_vertex()])
         .vertex_shader(vertex_shader.entry_point("main").unwrap(), ())
         .input_assembly_state(InputAssemblyState::new())
         .viewport_state(ViewportState::viewport_fixed_scissor_irrelevant([viewport]))
+        .depth_stencil_state(DepthStencilState::simple_depth_test())
         .fragment_shader(fragment_shader.entry_point("main").unwrap(), ())
         .render_pass(Subpass::from(render_pass.clone(), 0).unwrap())
         .build(device.clone())
@@ -229,6 +279,7 @@ pub fn get_command_buffers(
     pipeline: &Arc<GraphicsPipeline>,
     framebuffers: &[Arc<Framebuffer>],
     vertex_buffer: &Subbuffer<[CustomVertex]>,
+    index_buffer: &Subbuffer<[u16]>,
 ) -> Vec<Arc<PrimaryAutoCommandBuffer>> {
     let command_buffer_allocator =
         StandardCommandBufferAllocator::new(device.clone(), Default::default());
@@ -245,7 +296,7 @@ pub fn get_command_buffers(
             builder
                 .begin_render_pass(
                     RenderPassBeginInfo {
-                        clear_values: vec![Some([0.1, 0.1, 0.1, 1.0].into())],
+                        clear_values: vec![Some([0.63, 0.82, 0.96, 1.0].into()), Some(1f32.into())],
                         ..RenderPassBeginInfo::framebuffer(framebuffer.clone())
                     },
                     SubpassContents::Inline,
@@ -253,7 +304,8 @@ pub fn get_command_buffers(
                 .unwrap()
                 .bind_pipeline_graphics(pipeline.clone())
                 .bind_vertex_buffers(0, vertex_buffer.clone())
-                .draw(vertex_buffer.len() as u32, 1, 0, 0)
+                .bind_index_buffer(index_buffer.clone())
+                .draw_indexed(index_buffer.len() as u32, 1, 0, 0, 0)
                 .unwrap()
                 .end_render_pass()
                 .unwrap();
@@ -293,6 +345,7 @@ pub fn run_event_loop(
     mut command_buffers: Vec<Arc<PrimaryAutoCommandBuffer>>,
     queue: Arc<Queue>,
     vertex_buffer: Subbuffer<[CustomVertex]>,
+    index_buffer: Subbuffer<[u16]>,
 ) {
     let mut window_resized = false;
     let mut recreate_swapchain = false;
@@ -322,7 +375,7 @@ pub fn run_event_loop(
                     Err(e) => panic!("Failed to recreate swapchain: {e}"),
                 };
                 swapchain = new_swapchain;
-                let new_framebuffers = get_framebuffers(&new_images, &render_pass);
+                let new_framebuffers = get_framebuffers(device.clone(), &new_images, &render_pass);
 
                 if window_resized {
                     window_resized = false;
@@ -340,6 +393,7 @@ pub fn run_event_loop(
                         &new_pipeline,
                         &new_framebuffers,
                         &vertex_buffer,
+                        &index_buffer,
                     );
                 }
             }

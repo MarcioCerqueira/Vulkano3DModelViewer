@@ -17,7 +17,7 @@ fn main() {
     let (swapchain, images) =
         vulkano_wrapper::create_swapchain(&device, &physical_device, &surface);
     let render_pass = vulkano_wrapper::get_render_pass(device.clone(), &swapchain);
-    let framebuffers = vulkano_wrapper::get_framebuffers(&images, &render_pass);
+    let framebuffers = vulkano_wrapper::get_framebuffers(device.clone(), &images, &render_pass);
 
     let (vertex_shader, fragment_shader) = shader::load(device.clone());
     let viewport = vulkano_wrapper::get_viewport();
@@ -29,14 +29,17 @@ fn main() {
         viewport.clone(),
     );
 
-    let model = model::Model::new();
+    let model = model::Model::new("models/viking_room.obj");
     let vertex_buffer = vulkano_wrapper::create_vertex_buffer(device.clone(), model.vertices);
+    let index_buffer = vulkano_wrapper::create_index_buffer(device.clone(), model.indices);
+
     let command_buffers = vulkano_wrapper::get_command_buffers(
         device.clone(),
         &queue,
         &pipeline,
         &framebuffers,
         &vertex_buffer,
+        &index_buffer,
     );
 
     vulkano_wrapper::run_event_loop(
@@ -52,5 +55,6 @@ fn main() {
         command_buffers,
         queue,
         vertex_buffer,
+        index_buffer,
     );
 }
