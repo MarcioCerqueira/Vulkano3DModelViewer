@@ -2,7 +2,7 @@ use std::sync::Arc;
 use vulkano::device::Device;
 use vulkano::shader::ShaderModule;
 
-mod vs {
+pub mod vs {
     vulkano_shaders::shader! {
         ty: "vertex",
         path: "shaders/vert.glsl",

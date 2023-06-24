@@ -32,18 +32,7 @@ fn main() {
     let model = model::Model::new("models/viking_room.obj");
     let vertex_buffer = vulkano_wrapper::create_vertex_buffer(device.clone(), model.vertices);
     let index_buffer = vulkano_wrapper::create_index_buffer(device.clone(), model.indices);
-
-    let command_buffers = vulkano_wrapper::get_command_buffers(
-        device.clone(),
-        &queue,
-        &pipeline,
-        &framebuffers,
-        &vertex_buffer,
-        &index_buffer,
-    );
-
     vulkano_wrapper::run_event_loop(
-        images.len(),
         event_loop,
         swapchain,
         surface,
@@ -52,9 +41,10 @@ fn main() {
         device,
         vertex_shader,
         fragment_shader,
-        command_buffers,
         queue,
         vertex_buffer,
         index_buffer,
+        pipeline,
+        framebuffers,
     );
 }
