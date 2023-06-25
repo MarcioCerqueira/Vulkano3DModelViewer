@@ -1,5 +1,3 @@
-use cgmath::{Matrix4, Point3, Rad, Vector3};
-
 use std::sync::Arc;
 
 use vulkano::buffer::{Buffer, BufferContents, BufferCreateInfo, BufferUsage, Subbuffer};
@@ -35,6 +33,7 @@ use winit::event::{Event, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::Window;
 
+use crate::camera::Camera;
 use crate::shader::vs;
 use memory_allocator::MemoryAllocator;
 
@@ -355,6 +354,7 @@ pub fn run_event_loop(
 ) {
     let mut recreate_swapchain = false;
     let mut previous_frame_end = Some(sync::now(device.clone()).boxed());
+    let camera = Camera {};
 
     event_loop.run(move |event, _, control_flow| match event {
         Event::WindowEvent {
@@ -397,22 +397,10 @@ pub fn run_event_loop(
             let uniform_buffer_subbuffer = {
                 let aspect_ratio =
                     swapchain.image_extent()[0] as f32 / swapchain.image_extent()[1] as f32;
-                let proj = cgmath::perspective(
-                    Rad(std::f32::consts::FRAC_PI_2),
-                    aspect_ratio,
-                    0.1,
-                    1000.0,
-                );
-                let view = Matrix4::look_at_rh(
-                    Point3::new(0.0, 0.0, 2.0),
-                    Point3::new(0.0, 0.0, 0.0),
-                    Vector3::new(0.0, -1.0, 0.0),
-                );
-                let scale = Matrix4::from_scale(1.0);
                 let uniform_data = vs::UniformBufferObject {
-                    model: Matrix4::from_angle_x(Rad(0 as f32)).into(),
-                    view: (view * scale).into(),
-                    projection: proj.into(),
+                    model: camera.get_model_matrix().into(),
+                    view: camera.get_view_matrix().into(),
+                    projection: camera.get_projection_matrix(aspect_ratio).into(),
                 };
                 let subbuffer = memory_allocator.subbuffer.allocate_sized().unwrap();
                 *subbuffer.write().unwrap() = uniform_data;

@@ -2,6 +2,7 @@ use vulkano_win::VkSurfaceBuild;
 use winit::event_loop::EventLoop;
 use winit::window::WindowBuilder;
 
+pub mod camera;
 pub mod model;
 pub mod shader;
 pub mod vulkano_wrapper;
