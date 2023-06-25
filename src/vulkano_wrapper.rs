@@ -407,10 +407,9 @@ pub fn run_event_loop(
                 subbuffer
             };
 
-            let layout = pipeline.layout().set_layouts().get(0).unwrap();
             let set = PersistentDescriptorSet::new(
                 &memory_allocator.descriptor_set,
-                layout.clone(),
+                pipeline.layout().set_layouts().get(0).unwrap().clone(),
                 [WriteDescriptorSet::buffer(0, uniform_buffer_subbuffer)],
             )
             .unwrap();
