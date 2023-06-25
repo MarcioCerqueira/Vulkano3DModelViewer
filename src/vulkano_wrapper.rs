@@ -2,7 +2,6 @@ use cgmath::{Matrix4, Point3, Rad, Vector3};
 
 use std::sync::Arc;
 
-use vulkano::buffer::allocator::{SubbufferAllocator, SubbufferAllocatorCreateInfo};
 use vulkano::buffer::{Buffer, BufferContents, BufferCreateInfo, BufferUsage, Subbuffer};
 use vulkano::command_buffer::{
     AutoCommandBufferBuilder, CommandBufferUsage, PrimaryAutoCommandBuffer, RenderPassBeginInfo,
@@ -410,19 +409,12 @@ pub fn run_event_loop(
                     Vector3::new(0.0, -1.0, 0.0),
                 );
                 let scale = Matrix4::from_scale(1.0);
-                let uniform_buffer = SubbufferAllocator::new(
-                    memory_allocator.standard.clone(),
-                    SubbufferAllocatorCreateInfo {
-                        buffer_usage: BufferUsage::UNIFORM_BUFFER,
-                        ..Default::default()
-                    },
-                );
                 let uniform_data = vs::UniformBufferObject {
                     model: Matrix4::from_angle_x(Rad(0 as f32)).into(),
                     view: (view * scale).into(),
                     projection: proj.into(),
                 };
-                let subbuffer = uniform_buffer.allocate_sized().unwrap();
+                let subbuffer = memory_allocator.subbuffer.allocate_sized().unwrap();
                 *subbuffer.write().unwrap() = uniform_data;
                 subbuffer
             };

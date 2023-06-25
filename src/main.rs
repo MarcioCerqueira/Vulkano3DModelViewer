@@ -32,6 +32,7 @@ fn main() {
     let model = model::Model::new("models/viking_room.obj");
     let vertex_buffer = vulkano_wrapper::create_vertex_buffer(model.vertices, &memory_allocator);
     let index_buffer = vulkano_wrapper::create_index_buffer(model.indices, &memory_allocator);
+
     vulkano_wrapper::run_event_loop(
         event_loop,
         swapchain,
