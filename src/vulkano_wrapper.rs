@@ -293,7 +293,7 @@ pub fn get_framebuffers(
         .collect::<Vec<_>>()
 }
 
-pub fn get_pipeline(
+fn get_pipeline(
     device: Arc<Device>,
     vertex_shader: Arc<ShaderModule>,
     fragment_shader: Arc<ShaderModule>,
@@ -370,7 +370,7 @@ fn get_window(surface: &Arc<Surface>) -> Arc<Window> {
         .unwrap()
 }
 
-pub fn get_viewport() -> Viewport {
+fn get_viewport() -> Viewport {
     Viewport {
         origin: [0.0, 0.0],
         dimensions: [1024.0, 1024.0],
@@ -411,7 +411,6 @@ pub fn run_event_loop(
     mut swapchain: Arc<Swapchain>,
     surface: Arc<Surface>,
     render_pass: Arc<RenderPass>,
-    mut viewport: Viewport,
     device: Arc<Device>,
     vertex_shader: Arc<ShaderModule>,
     fragment_shader: Arc<ShaderModule>,
@@ -423,7 +422,6 @@ pub fn run_event_loop(
         PrimaryAutoCommandBuffer,
         Arc<StandardCommandBufferAllocator>,
     >,
-    mut pipeline: Arc<GraphicsPipeline>,
     mut framebuffers: Vec<Arc<Framebuffer>>,
     memory_allocator: MemoryAllocator,
 ) {
@@ -435,6 +433,14 @@ pub fn run_event_loop(
             .execute(queue.clone())
             .unwrap()
             .boxed(),
+    );
+    let mut viewport = get_viewport();
+    let mut pipeline = get_pipeline(
+        device.clone(),
+        vertex_shader.clone(),
+        fragment_shader.clone(),
+        render_pass.clone(),
+        viewport.clone(),
     );
 
     event_loop.run(move |event, _, control_flow| match event {

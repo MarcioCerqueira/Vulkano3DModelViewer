@@ -18,16 +18,7 @@ fn main() {
     let render_pass = vulkano_wrapper::get_render_pass(device.clone(), &swapchain);
     let memory_allocator = vulkano_wrapper::memory_allocator::new(device.clone());
     let framebuffers = vulkano_wrapper::get_framebuffers(&images, &render_pass, &memory_allocator);
-
     let (vertex_shader, fragment_shader) = vulkano_wrapper::shader::load(device.clone());
-    let viewport = vulkano_wrapper::get_viewport();
-    let pipeline = vulkano_wrapper::get_pipeline(
-        device.clone(),
-        vertex_shader.clone(),
-        fragment_shader.clone(),
-        render_pass.clone(),
-        viewport.clone(),
-    );
 
     let model = model::Model::new("models/viking_room.obj", "textures/viking_room.png");
     let vertex_buffer = vulkano_wrapper::create_vertex_buffer(model.vertices, &memory_allocator);
@@ -46,7 +37,6 @@ fn main() {
         swapchain,
         surface,
         render_pass,
-        viewport,
         device,
         vertex_shader,
         fragment_shader,
@@ -55,7 +45,6 @@ fn main() {
         index_buffer,
         texture_buffer,
         image_builder,
-        pipeline,
         framebuffers,
         memory_allocator,
     );
