@@ -342,9 +342,8 @@ fn create_uniform_buffer_object(
 
 pub fn run_event_loop(
     event_loop: EventLoop<()>,
-    mut swapchain: Arc<Swapchain>,
+    physical_device: Arc<PhysicalDevice>,
     surface: Arc<Surface>,
-    render_pass: Arc<RenderPass>,
     device: Arc<Device>,
     queue: Arc<Queue>,
     vulkano_model: VulkanoModel,
@@ -352,7 +351,6 @@ pub fn run_event_loop(
         PrimaryAutoCommandBuffer,
         Arc<StandardCommandBufferAllocator>,
     >,
-    mut framebuffers: Vec<Arc<Framebuffer>>,
     memory_allocator: MemoryAllocator,
 ) {
     let mut recreate_swapchain = false;
@@ -366,6 +364,10 @@ pub fn run_event_loop(
     );
     let mut viewport = get_viewport();
     let (vertex_shader, fragment_shader) = shader::load(device.clone());
+    let (mut swapchain, images) = create_swapchain(&device, &physical_device, &surface);
+    let render_pass = get_render_pass(device.clone(), &swapchain);
+    let mut framebuffers = get_framebuffers(&images, &render_pass, &memory_allocator);
+
     let mut pipeline = get_pipeline(
         device.clone(),
         vertex_shader.clone(),

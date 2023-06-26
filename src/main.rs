@@ -13,11 +13,7 @@ fn main() {
         .build_vk_surface(&event_loop, instance.clone())
         .unwrap();
     let (physical_device, device, queue) = vulkano_wrapper::instantiate_device(&instance, &surface);
-    let (swapchain, images) =
-        vulkano_wrapper::create_swapchain(&device, &physical_device, &surface);
-    let render_pass = vulkano_wrapper::get_render_pass(device.clone(), &swapchain);
     let memory_allocator = vulkano_wrapper::memory_allocator::new(device.clone());
-    let framebuffers = vulkano_wrapper::get_framebuffers(&images, &render_pass, &memory_allocator);
 
     let model = model::Model::new("models/viking_room.obj", "textures/viking_room.png");
     let mut image_builder =
@@ -27,14 +23,12 @@ fn main() {
 
     vulkano_wrapper::run_event_loop(
         event_loop,
-        swapchain,
+        physical_device,
         surface,
-        render_pass,
         device,
         queue,
         vulkano_model,
         image_builder,
-        framebuffers,
         memory_allocator,
     );
 }
