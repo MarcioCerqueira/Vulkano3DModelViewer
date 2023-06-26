@@ -4,7 +4,6 @@ use winit::window::WindowBuilder;
 
 pub mod camera;
 pub mod model;
-pub mod shader;
 pub mod vulkano_wrapper;
 
 fn main() {
@@ -20,7 +19,7 @@ fn main() {
     let memory_allocator = vulkano_wrapper::memory_allocator::new(device.clone());
     let framebuffers = vulkano_wrapper::get_framebuffers(&images, &render_pass, &memory_allocator);
 
-    let (vertex_shader, fragment_shader) = shader::load(device.clone());
+    let (vertex_shader, fragment_shader) = vulkano_wrapper::shader::load(device.clone());
     let viewport = vulkano_wrapper::get_viewport();
     let pipeline = vulkano_wrapper::get_pipeline(
         device.clone(),

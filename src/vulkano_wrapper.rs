@@ -39,10 +39,11 @@ use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::Window;
 
 use crate::camera::Camera;
-use crate::shader::vs;
+use crate::vulkano_wrapper::shader::vs;
 use memory_allocator::MemoryAllocator;
 
 pub mod memory_allocator;
+pub mod shader;
 
 #[derive(BufferContents, Vertex)]
 #[repr(C)]
