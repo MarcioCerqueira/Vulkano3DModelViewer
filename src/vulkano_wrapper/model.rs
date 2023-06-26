@@ -52,6 +52,14 @@ fn create_index_buffer(indices: Vec<u16>, memory_allocator: &MemoryAllocator) ->
     .unwrap()
 }
 
+fn get_texture_dimensions(texture: &DynamicImage) -> ImageDimensions {
+    ImageDimensions::Dim2d {
+        width: texture.width(),
+        height: texture.height(),
+        array_layers: 1,
+    }
+}
+
 fn create_texture_buffer(
     texture: DynamicImage,
     memory_allocator: &MemoryAllocator,
@@ -60,15 +68,10 @@ fn create_texture_buffer(
         Arc<StandardCommandBufferAllocator>,
     >,
 ) -> Arc<ImageView<ImmutableImage>> {
-    let dimensions = ImageDimensions::Dim2d {
-        width: texture.width(),
-        height: texture.height(),
-        array_layers: 1,
-    };
     let image = ImmutableImage::from_iter(
         &memory_allocator.standard,
         texture.clone().into_rgba8().into_raw().clone(),
-        dimensions,
+        get_texture_dimensions(&texture),
         MipmapsCount::One,
         Format::R8G8B8A8_SRGB,
         &mut builder,
