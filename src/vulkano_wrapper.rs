@@ -378,6 +378,19 @@ pub fn get_viewport() -> Viewport {
     }
 }
 
+fn create_sampler(device: Arc<Device>) -> Arc<Sampler> {
+    Sampler::new(
+        device.clone(),
+        SamplerCreateInfo {
+            mag_filter: Filter::Linear,
+            min_filter: Filter::Linear,
+            address_mode: [SamplerAddressMode::Repeat; 3],
+            ..Default::default()
+        },
+    )
+    .unwrap()
+}
+
 pub fn run_event_loop(
     event_loop: EventLoop<()>,
     mut swapchain: Arc<Swapchain>,
@@ -461,23 +474,16 @@ pub fn run_event_loop(
                 subbuffer
             };
 
-            let sampler = Sampler::new(
-                device.clone(),
-                SamplerCreateInfo {
-                    mag_filter: Filter::Linear,
-                    min_filter: Filter::Linear,
-                    address_mode: [SamplerAddressMode::Repeat; 3],
-                    ..Default::default()
-                },
-            )
-            .unwrap();
-
             let set = PersistentDescriptorSet::new(
                 &memory_allocator.descriptor_set,
                 pipeline.layout().set_layouts().get(0).unwrap().clone(),
                 [
                     WriteDescriptorSet::buffer(0, uniform_buffer_subbuffer),
-                    WriteDescriptorSet::image_view_sampler(1, texture_buffer.clone(), sampler),
+                    WriteDescriptorSet::image_view_sampler(
+                        1,
+                        texture_buffer.clone(),
+                        create_sampler(device.clone()),
+                    ),
                 ],
             )
             .unwrap();
