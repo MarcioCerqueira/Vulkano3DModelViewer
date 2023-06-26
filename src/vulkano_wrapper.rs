@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use vulkano::buffer::{Buffer, BufferContents, BufferCreateInfo, BufferUsage, Subbuffer};
+use vulkano::buffer::{BufferContents, Subbuffer};
 use vulkano::command_buffer::allocator::StandardCommandBufferAllocator;
 use vulkano::command_buffer::{
     AutoCommandBufferBuilder, CommandBufferUsage, PrimaryAutoCommandBuffer,
@@ -13,12 +13,8 @@ use vulkano::device::{
 };
 use vulkano::format::Format;
 use vulkano::image::view::ImageView;
-use vulkano::image::{
-    AttachmentImage, ImageAccess, ImageDimensions, ImageUsage, ImmutableImage, MipmapsCount,
-    SwapchainImage,
-};
+use vulkano::image::{AttachmentImage, ImageAccess, ImageUsage, SwapchainImage};
 use vulkano::instance::{Instance, InstanceCreateInfo};
-use vulkano::memory::allocator::{AllocationCreateInfo, MemoryUsage};
 use vulkano::pipeline::graphics::depth_stencil::DepthStencilState;
 use vulkano::pipeline::graphics::input_assembly::InputAssemblyState;
 use vulkano::pipeline::graphics::vertex_input::Vertex;
@@ -42,7 +38,10 @@ use crate::camera::Camera;
 use crate::vulkano_wrapper::shader::vs;
 use memory_allocator::MemoryAllocator;
 
+use self::model::VulkanoModel;
+
 pub mod memory_allocator;
+pub mod model;
 pub mod shader;
 
 #[derive(BufferContents, Vertex)]
@@ -162,71 +161,6 @@ pub fn create_swapchain(
         },
     )
     .unwrap()
-}
-
-pub fn create_vertex_buffer(
-    vertices: Vec<CustomVertex>,
-    memory_allocator: &MemoryAllocator,
-) -> Subbuffer<[CustomVertex]> {
-    Buffer::from_iter(
-        &memory_allocator.standard,
-        BufferCreateInfo {
-            usage: BufferUsage::VERTEX_BUFFER,
-            ..Default::default()
-        },
-        AllocationCreateInfo {
-            usage: MemoryUsage::Upload,
-            ..Default::default()
-        },
-        vertices,
-    )
-    .unwrap()
-}
-
-pub fn create_index_buffer(
-    indices: Vec<u16>,
-    memory_allocator: &MemoryAllocator,
-) -> Subbuffer<[u16]> {
-    Buffer::from_iter(
-        &memory_allocator.standard,
-        BufferCreateInfo {
-            usage: BufferUsage::INDEX_BUFFER,
-            ..Default::default()
-        },
-        AllocationCreateInfo {
-            usage: MemoryUsage::Upload,
-            ..Default::default()
-        },
-        indices,
-    )
-    .unwrap()
-}
-
-pub fn create_texture(
-    memory_allocator: &MemoryAllocator,
-    mut builder: &mut AutoCommandBufferBuilder<
-        PrimaryAutoCommandBuffer,
-        Arc<StandardCommandBufferAllocator>,
-    >,
-    image_data: Vec<u8>,
-    image_width: u32,
-    image_height: u32,
-) -> Arc<ImageView<ImmutableImage>> {
-    let dimensions = ImageDimensions::Dim2d {
-        width: image_width,
-        height: image_height,
-        array_layers: 1,
-    };
-    let image = ImmutableImage::from_iter(
-        &memory_allocator.standard,
-        image_data.clone(),
-        dimensions,
-        MipmapsCount::One,
-        Format::R8G8B8A8_SRGB,
-        &mut builder,
-    )
-    .unwrap();
-    ImageView::new_default(image).unwrap()
 }
 
 pub fn get_render_pass(device: Arc<Device>, swapchain: &Arc<Swapchain>) -> Arc<RenderPass> {
@@ -413,9 +347,7 @@ pub fn run_event_loop(
     render_pass: Arc<RenderPass>,
     device: Arc<Device>,
     queue: Arc<Queue>,
-    vertex_buffer: Subbuffer<[CustomVertex]>,
-    index_buffer: Subbuffer<[u16]>,
-    texture_buffer: Arc<ImageView<ImmutableImage>>,
+    vulkano_model: VulkanoModel,
     image_builder: AutoCommandBufferBuilder<
         PrimaryAutoCommandBuffer,
         Arc<StandardCommandBufferAllocator>,
@@ -493,7 +425,7 @@ pub fn run_event_loop(
                     ),
                     WriteDescriptorSet::image_view_sampler(
                         1,
-                        texture_buffer.clone(),
+                        vulkano_model.texture_buffer.clone(),
                         create_sampler(device.clone()),
                     ),
                 ],
@@ -518,8 +450,8 @@ pub fn run_event_loop(
                 &queue,
                 &pipeline,
                 &framebuffers[image_i as usize],
-                &vertex_buffer,
-                &index_buffer,
+                &vulkano_model.vertex_buffer,
+                &vulkano_model.index_buffer,
                 &set.clone(),
                 &memory_allocator,
             );
