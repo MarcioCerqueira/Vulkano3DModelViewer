@@ -262,12 +262,19 @@ fn get_command_buffer(
     queue: &Arc<Queue>,
     pipeline: &Arc<GraphicsPipeline>,
     framebuffer: &Arc<Framebuffer>,
-    vertex_buffer: &Subbuffer<[CustomVertex]>,
-    index_buffer: &Subbuffer<[u16]>,
-    set: &Arc<PersistentDescriptorSet>,
+    vulkano_model: &VulkanoModel,
+    device: &Arc<Device>,
     memory_allocator: &MemoryAllocator,
+    aspect_ratio: f32,
 ) -> Arc<PrimaryAutoCommandBuffer> {
     let mut builder = create_command_buffer_builder(memory_allocator, queue);
+    let persistent_descriptor_set = create_persistent_descriptor_set(
+        &memory_allocator,
+        &pipeline,
+        aspect_ratio,
+        &vulkano_model,
+        device.clone(),
+    );
 
     builder
         .begin_render_pass(
@@ -283,11 +290,11 @@ fn get_command_buffer(
             PipelineBindPoint::Graphics,
             pipeline.layout().clone(),
             0,
-            set.clone(),
+            persistent_descriptor_set,
         )
-        .bind_vertex_buffers(0, vertex_buffer.clone())
-        .bind_index_buffer(index_buffer.clone())
-        .draw_indexed(index_buffer.len() as u32, 1, 0, 0, 0)
+        .bind_vertex_buffers(0, vulkano_model.vertex_buffer.clone())
+        .bind_index_buffer(vulkano_model.index_buffer.clone())
+        .draw_indexed(vulkano_model.index_buffer.len() as u32, 1, 0, 0, 0)
         .unwrap()
         .end_render_pass()
         .unwrap();
@@ -341,6 +348,31 @@ fn create_uniform_buffer_object(
     let subbuffer = memory_allocator.subbuffer.allocate_sized().unwrap();
     *subbuffer.write().unwrap() = uniform_data;
     subbuffer
+}
+
+fn create_persistent_descriptor_set(
+    memory_allocator: &MemoryAllocator,
+    pipeline: &Arc<GraphicsPipeline>,
+    aspect_ratio: f32,
+    vulkano_model: &VulkanoModel,
+    device: Arc<Device>,
+) -> Arc<PersistentDescriptorSet> {
+    PersistentDescriptorSet::new(
+        &memory_allocator.descriptor_set,
+        pipeline.layout().set_layouts().get(0).unwrap().clone(),
+        [
+            WriteDescriptorSet::buffer(
+                0,
+                create_uniform_buffer_object(&memory_allocator, aspect_ratio),
+            ),
+            WriteDescriptorSet::image_view_sampler(
+                1,
+                vulkano_model.texture_buffer.clone(),
+                create_sampler(device.clone()),
+            ),
+        ],
+    )
+    .unwrap()
 }
 
 pub fn run_event_loop(
@@ -415,26 +447,6 @@ pub fn run_event_loop(
                 );
             }
 
-            let set = PersistentDescriptorSet::new(
-                &memory_allocator.descriptor_set,
-                pipeline.layout().set_layouts().get(0).unwrap().clone(),
-                [
-                    WriteDescriptorSet::buffer(
-                        0,
-                        create_uniform_buffer_object(
-                            &memory_allocator,
-                            swapchain.image_extent()[0] as f32 / swapchain.image_extent()[1] as f32,
-                        ),
-                    ),
-                    WriteDescriptorSet::image_view_sampler(
-                        1,
-                        vulkano_model.texture_buffer.clone(),
-                        create_sampler(device.clone()),
-                    ),
-                ],
-            )
-            .unwrap();
-
             let (image_i, suboptimal, acquire_future) =
                 match swapchain::acquire_next_image(swapchain.clone(), None) {
                     Ok(r) => r,
@@ -453,10 +465,10 @@ pub fn run_event_loop(
                 &queue,
                 &pipeline,
                 &framebuffers[image_i as usize],
-                &vulkano_model.vertex_buffer,
-                &vulkano_model.index_buffer,
-                &set.clone(),
+                &vulkano_model,
+                &device.clone(),
                 &memory_allocator,
+                swapchain.image_extent()[0] as f32 / swapchain.image_extent()[1] as f32,
             );
 
             let future = previous_frame_end
