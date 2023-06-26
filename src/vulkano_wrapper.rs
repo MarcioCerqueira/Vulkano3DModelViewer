@@ -412,8 +412,6 @@ pub fn run_event_loop(
     surface: Arc<Surface>,
     render_pass: Arc<RenderPass>,
     device: Arc<Device>,
-    vertex_shader: Arc<ShaderModule>,
-    fragment_shader: Arc<ShaderModule>,
     queue: Arc<Queue>,
     vertex_buffer: Subbuffer<[CustomVertex]>,
     index_buffer: Subbuffer<[u16]>,
@@ -435,6 +433,7 @@ pub fn run_event_loop(
             .boxed(),
     );
     let mut viewport = get_viewport();
+    let (vertex_shader, fragment_shader) = shader::load(device.clone());
     let mut pipeline = get_pipeline(
         device.clone(),
         vertex_shader.clone(),
