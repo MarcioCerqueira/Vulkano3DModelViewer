@@ -391,6 +391,21 @@ fn create_sampler(device: Arc<Device>) -> Arc<Sampler> {
     .unwrap()
 }
 
+fn create_uniform_buffer_object(
+    memory_allocator: &MemoryAllocator,
+    aspect_ratio: f32,
+) -> Subbuffer<vs::UniformBufferObject> {
+    let camera = Camera {};
+    let uniform_data = vs::UniformBufferObject {
+        model: camera.get_model_matrix().into(),
+        view: camera.get_view_matrix().into(),
+        projection: camera.get_projection_matrix(aspect_ratio).into(),
+    };
+    let subbuffer = memory_allocator.subbuffer.allocate_sized().unwrap();
+    *subbuffer.write().unwrap() = uniform_data;
+    subbuffer
+}
+
 pub fn run_event_loop(
     event_loop: EventLoop<()>,
     mut swapchain: Arc<Swapchain>,
@@ -421,7 +436,6 @@ pub fn run_event_loop(
             .unwrap()
             .boxed(),
     );
-    let camera = Camera {};
 
     event_loop.run(move |event, _, control_flow| match event {
         Event::WindowEvent {
@@ -461,24 +475,17 @@ pub fn run_event_loop(
                 );
             }
 
-            let uniform_buffer_subbuffer = {
-                let aspect_ratio =
-                    swapchain.image_extent()[0] as f32 / swapchain.image_extent()[1] as f32;
-                let uniform_data = vs::UniformBufferObject {
-                    model: camera.get_model_matrix().into(),
-                    view: camera.get_view_matrix().into(),
-                    projection: camera.get_projection_matrix(aspect_ratio).into(),
-                };
-                let subbuffer = memory_allocator.subbuffer.allocate_sized().unwrap();
-                *subbuffer.write().unwrap() = uniform_data;
-                subbuffer
-            };
-
             let set = PersistentDescriptorSet::new(
                 &memory_allocator.descriptor_set,
                 pipeline.layout().set_layouts().get(0).unwrap().clone(),
                 [
-                    WriteDescriptorSet::buffer(0, uniform_buffer_subbuffer),
+                    WriteDescriptorSet::buffer(
+                        0,
+                        create_uniform_buffer_object(
+                            &memory_allocator,
+                            swapchain.image_extent()[0] as f32 / swapchain.image_extent()[1] as f32,
+                        ),
+                    ),
                     WriteDescriptorSet::image_view_sampler(
                         1,
                         texture_buffer.clone(),
