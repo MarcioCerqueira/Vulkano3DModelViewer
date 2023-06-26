@@ -304,10 +304,13 @@ fn get_window(surface: &Arc<Surface>) -> Arc<Window> {
         .unwrap()
 }
 
-fn get_viewport() -> Viewport {
+fn get_viewport(dimensions: Option<[f32; 2]>) -> Viewport {
     Viewport {
         origin: [0.0, 0.0],
-        dimensions: [1024.0, 1024.0],
+        dimensions: match dimensions {
+            None => [1024.0, 1024.0],
+            Some(value) => value,
+        },
         depth_range: 0.0..1.0,
     }
 }
@@ -362,7 +365,6 @@ pub fn run_event_loop(
             .unwrap()
             .boxed(),
     );
-    let mut viewport = get_viewport();
     let (vertex_shader, fragment_shader) = shader::load(device.clone());
     let (mut swapchain, images) = create_swapchain(&device, &physical_device, &surface);
     let render_pass = get_render_pass(device.clone(), &swapchain);
@@ -373,7 +375,7 @@ pub fn run_event_loop(
         vertex_shader.clone(),
         fragment_shader.clone(),
         render_pass.clone(),
-        viewport.clone(),
+        get_viewport(None),
     );
 
     event_loop.run(move |event, _, control_flow| match event {
@@ -404,13 +406,12 @@ pub fn run_event_loop(
                 swapchain = new_swapchain;
                 framebuffers = get_framebuffers(&new_images, &render_pass, &memory_allocator);
 
-                viewport.dimensions = get_window(&surface).inner_size().into();
                 pipeline = get_pipeline(
                     device.clone(),
                     vertex_shader.clone(),
                     fragment_shader.clone(),
                     render_pass.clone(),
-                    viewport.clone(),
+                    get_viewport(Some(get_window(&surface).inner_size().into())),
                 );
             }
 
