@@ -136,7 +136,7 @@ fn get_image_format(
     )
 }
 
-pub fn create_swapchain(
+fn create_swapchain(
     device: &Arc<Device>,
     physical_device: &Arc<PhysicalDevice>,
     surface: &Arc<Surface>,
@@ -163,7 +163,7 @@ pub fn create_swapchain(
     .unwrap()
 }
 
-pub fn get_render_pass(device: Arc<Device>, swapchain: &Arc<Swapchain>) -> Arc<RenderPass> {
+fn get_render_pass(device: Arc<Device>, swapchain: &Arc<Swapchain>) -> Arc<RenderPass> {
     vulkano::single_pass_renderpass!(
         device,
         attachments: {
@@ -203,7 +203,7 @@ fn get_depth_buffer(
     .unwrap()
 }
 
-pub fn get_framebuffers(
+fn get_framebuffers(
     images: &[Arc<SwapchainImage>],
     render_pass: &Arc<RenderPass>,
     memory_allocator: &MemoryAllocator,
@@ -258,7 +258,7 @@ pub fn create_command_buffer_builder(
     .unwrap()
 }
 
-pub fn get_command_buffer(
+fn get_command_buffer(
     queue: &Arc<Queue>,
     pipeline: &Arc<GraphicsPipeline>,
     framebuffer: &Arc<Framebuffer>,
