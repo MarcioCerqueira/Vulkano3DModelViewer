@@ -1,9 +1,10 @@
 use std::sync::Arc;
 
 use vulkano::buffer::{Buffer, BufferContents, BufferCreateInfo, BufferUsage, Subbuffer};
+use vulkano::command_buffer::allocator::StandardCommandBufferAllocator;
 use vulkano::command_buffer::{
-    AutoCommandBufferBuilder, CommandBufferUsage, PrimaryAutoCommandBuffer, RenderPassBeginInfo,
-    SubpassContents,
+    AutoCommandBufferBuilder, CommandBufferUsage, PrimaryAutoCommandBuffer,
+    PrimaryCommandBufferAbstract, RenderPassBeginInfo, SubpassContents,
 };
 use vulkano::descriptor_set::{PersistentDescriptorSet, WriteDescriptorSet};
 use vulkano::device::physical::{PhysicalDevice, PhysicalDeviceType};
@@ -12,7 +13,10 @@ use vulkano::device::{
 };
 use vulkano::format::Format;
 use vulkano::image::view::ImageView;
-use vulkano::image::{AttachmentImage, ImageAccess, ImageUsage, SwapchainImage};
+use vulkano::image::{
+    AttachmentImage, ImageAccess, ImageDimensions, ImageUsage, ImmutableImage, MipmapsCount,
+    SwapchainImage,
+};
 use vulkano::instance::{Instance, InstanceCreateInfo};
 use vulkano::memory::allocator::{AllocationCreateInfo, MemoryUsage};
 use vulkano::pipeline::graphics::depth_stencil::DepthStencilState;
@@ -21,6 +25,7 @@ use vulkano::pipeline::graphics::vertex_input::Vertex;
 use vulkano::pipeline::graphics::viewport::{Viewport, ViewportState};
 use vulkano::pipeline::{GraphicsPipeline, Pipeline, PipelineBindPoint};
 use vulkano::render_pass::{Framebuffer, FramebufferCreateInfo, RenderPass, Subpass};
+use vulkano::sampler::{Filter, Sampler, SamplerAddressMode, SamplerCreateInfo};
 use vulkano::shader::ShaderModule;
 use vulkano::swapchain::{
     self, AcquireError, Surface, Swapchain, SwapchainCreateInfo, SwapchainCreationError,
@@ -46,6 +51,8 @@ pub struct CustomVertex {
     pub position: [f32; 3],
     #[format(R32G32B32_SFLOAT)]
     pub normal: [f32; 3],
+    #[format(R32G32B32_SFLOAT)]
+    pub texture_coords: [f32; 3],
 }
 
 fn get_device_extensions() -> DeviceExtensions {
@@ -194,6 +201,33 @@ pub fn create_index_buffer(
     .unwrap()
 }
 
+pub fn create_texture(
+    memory_allocator: &MemoryAllocator,
+    mut builder: &mut AutoCommandBufferBuilder<
+        PrimaryAutoCommandBuffer,
+        Arc<StandardCommandBufferAllocator>,
+    >,
+    image_data: Vec<u8>,
+    image_width: u32,
+    image_height: u32,
+) -> Arc<ImageView<ImmutableImage>> {
+    let dimensions = ImageDimensions::Dim2d {
+        width: image_width,
+        height: image_height,
+        array_layers: 1,
+    };
+    let image = ImmutableImage::from_iter(
+        &memory_allocator.standard,
+        image_data.clone(),
+        dimensions,
+        MipmapsCount::One,
+        Format::R8G8B8A8_SRGB,
+        &mut builder,
+    )
+    .unwrap();
+    ImageView::new_default(image).unwrap()
+}
+
 pub fn get_render_pass(device: Arc<Device>, swapchain: &Arc<Swapchain>) -> Arc<RenderPass> {
     vulkano::single_pass_renderpass!(
         device,
@@ -277,6 +311,18 @@ pub fn get_pipeline(
         .unwrap()
 }
 
+pub fn create_command_buffer_builder(
+    memory_allocator: &MemoryAllocator,
+    queue: &Arc<Queue>,
+) -> AutoCommandBufferBuilder<PrimaryAutoCommandBuffer, Arc<StandardCommandBufferAllocator>> {
+    AutoCommandBufferBuilder::primary(
+        &memory_allocator.command_buffer,
+        queue.queue_family_index(),
+        CommandBufferUsage::OneTimeSubmit,
+    )
+    .unwrap()
+}
+
 pub fn get_command_buffer(
     queue: &Arc<Queue>,
     pipeline: &Arc<GraphicsPipeline>,
@@ -286,12 +332,7 @@ pub fn get_command_buffer(
     set: &Arc<PersistentDescriptorSet>,
     memory_allocator: &MemoryAllocator,
 ) -> Arc<PrimaryAutoCommandBuffer> {
-    let mut builder = AutoCommandBufferBuilder::primary(
-        &memory_allocator.command_buffer,
-        queue.queue_family_index(),
-        CommandBufferUsage::MultipleSubmit,
-    )
-    .unwrap();
+    let mut builder = create_command_buffer_builder(memory_allocator, queue);
 
     builder
         .begin_render_pass(
@@ -348,12 +389,24 @@ pub fn run_event_loop(
     queue: Arc<Queue>,
     vertex_buffer: Subbuffer<[CustomVertex]>,
     index_buffer: Subbuffer<[u16]>,
+    texture_buffer: Arc<ImageView<ImmutableImage>>,
+    image_builder: AutoCommandBufferBuilder<
+        PrimaryAutoCommandBuffer,
+        Arc<StandardCommandBufferAllocator>,
+    >,
     mut pipeline: Arc<GraphicsPipeline>,
     mut framebuffers: Vec<Arc<Framebuffer>>,
     memory_allocator: MemoryAllocator,
 ) {
     let mut recreate_swapchain = false;
-    let mut previous_frame_end = Some(sync::now(device.clone()).boxed());
+    let mut previous_frame_end = Some(
+        image_builder
+            .build()
+            .unwrap()
+            .execute(queue.clone())
+            .unwrap()
+            .boxed(),
+    );
     let camera = Camera {};
 
     event_loop.run(move |event, _, control_flow| match event {
@@ -407,10 +460,24 @@ pub fn run_event_loop(
                 subbuffer
             };
 
+            let sampler = Sampler::new(
+                device.clone(),
+                SamplerCreateInfo {
+                    mag_filter: Filter::Linear,
+                    min_filter: Filter::Linear,
+                    address_mode: [SamplerAddressMode::Repeat; 3],
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+
             let set = PersistentDescriptorSet::new(
                 &memory_allocator.descriptor_set,
                 pipeline.layout().set_layouts().get(0).unwrap().clone(),
-                [WriteDescriptorSet::buffer(0, uniform_buffer_subbuffer)],
+                [
+                    WriteDescriptorSet::buffer(0, uniform_buffer_subbuffer),
+                    WriteDescriptorSet::image_view_sampler(1, texture_buffer.clone(), sampler),
+                ],
             )
             .unwrap();
 

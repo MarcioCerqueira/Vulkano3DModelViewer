@@ -30,10 +30,18 @@ fn main() {
         viewport.clone(),
     );
 
-    let model = model::Model::new("models/viking_room.obj");
+    let model = model::Model::new("models/viking_room.obj", "textures/viking_room.png");
     let vertex_buffer = vulkano_wrapper::create_vertex_buffer(model.vertices, &memory_allocator);
     let index_buffer = vulkano_wrapper::create_index_buffer(model.indices, &memory_allocator);
-
+    let mut image_builder =
+        vulkano_wrapper::create_command_buffer_builder(&memory_allocator, &queue);
+    let texture_buffer = vulkano_wrapper::create_texture(
+        &memory_allocator,
+        &mut image_builder,
+        model.texture.clone().into_rgba8().into_raw(),
+        model.texture.width(),
+        model.texture.height(),
+    );
     vulkano_wrapper::run_event_loop(
         event_loop,
         swapchain,
@@ -46,6 +54,8 @@ fn main() {
         queue,
         vertex_buffer,
         index_buffer,
+        texture_buffer,
+        image_builder,
         pipeline,
         framebuffers,
         memory_allocator,
