@@ -152,7 +152,7 @@ impl Camera {
             }
             Action::LookAround => match self.mode {
                 Mode::Trackball => self.trackball(position),
-                _ => self.orbit(delta, true),
+                _ => self.orbit(Vector2::new(delta.x, -delta.y), true),
             },
             _ => {}
         }
@@ -272,9 +272,10 @@ impl Camera {
         // Finding the new position
         let new_position = center_to_eye + Vector3::new(origin.x, origin.y, origin.z);
         let new_position = Point3::new(new_position.x, new_position.y, new_position.z);
+
         match invert {
-            true => self.eye = new_position, // Normal: change the position of the camera
-            false => self.center = new_position, // Inverted: change the interest point
+            false => self.eye = new_position, // Normal: change the position of the camera
+            true => self.center = new_position, // Inverted: change the interest point
         }
     }
 

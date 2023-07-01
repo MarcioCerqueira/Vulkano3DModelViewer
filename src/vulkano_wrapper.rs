@@ -425,73 +425,67 @@ pub fn run_event_loop(
     let mut mouse_modifiers = MouseModifierFlags::None;
     let mut mouse_position = Point2::new(0, 0);
     event_loop.run(move |event, _, control_flow| match event {
-        Event::WindowEvent { event, .. } => {
-            match event {
-                WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
-                WindowEvent::Resized(_) => recreate_swapchain = true,
-                WindowEvent::KeyboardInput {
-                    device_id: _,
-                    input,
-                    ..
-                } => {
-                    if input.state == ElementState::Pressed {
-                        match input.virtual_keycode {
-                            Some(VirtualKeyCode::W) => {
-                                camera.process_keyboard(CameraMovement::Forward)
-                            }
-                            Some(VirtualKeyCode::S) => {
-                                camera.process_keyboard(CameraMovement::Backward)
-                            }
-                            Some(VirtualKeyCode::A) => {
-                                camera.process_keyboard(CameraMovement::Left)
-                            }
-                            Some(VirtualKeyCode::D) => {
-                                camera.process_keyboard(CameraMovement::Right)
-                            }
-                            Some(VirtualKeyCode::C) => camera.print_camera_data(),
-                            Some(VirtualKeyCode::Escape) => *control_flow = ControlFlow::Exit,
-                            _ => (),
+        Event::WindowEvent { event, .. } => match event {
+            WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
+            WindowEvent::Resized(_) => recreate_swapchain = true,
+            WindowEvent::KeyboardInput {
+                device_id: _,
+                input,
+                ..
+            } => {
+                if input.state == ElementState::Pressed {
+                    match input.virtual_keycode {
+                        Some(VirtualKeyCode::W) => camera.process_keyboard(CameraMovement::Forward),
+                        Some(VirtualKeyCode::S) => {
+                            camera.process_keyboard(CameraMovement::Backward)
                         }
+                        Some(VirtualKeyCode::A) => camera.process_keyboard(CameraMovement::Left),
+                        Some(VirtualKeyCode::D) => camera.process_keyboard(CameraMovement::Right),
+                        Some(VirtualKeyCode::C) => camera.print_camera_data(),
+                        Some(VirtualKeyCode::Escape) => *control_flow = ControlFlow::Exit,
+                        _ => (),
                     }
                 }
-                WindowEvent::MouseInput {
-                    device_id: _,
-                    state,
-                    button,
-                    ..
-                } => {
-                    mouse_button = CameraMouseButton::None;
-                    if state == ElementState::Pressed {
-                        match button {
-                            MouseButton::Left => mouse_button = CameraMouseButton::Left,
-                            MouseButton::Middle => mouse_button = CameraMouseButton::Middle,
-                            MouseButton::Right => mouse_button = CameraMouseButton::Right,
-                            _ => (),
-                        }
-                    }
-                    camera.set_mouse_position(mouse_position);
-                },
-                WindowEvent::ModifiersChanged(modifiers) => match modifiers {
-                    ModifiersState::ALT => mouse_modifiers = MouseModifierFlags::Alt,
-                    ModifiersState::CTRL => mouse_modifiers = MouseModifierFlags::Ctrl,
-                    ModifiersState::SHIFT => mouse_modifiers = MouseModifierFlags::Shift,
-                    _ => mouse_modifiers = MouseModifierFlags::None,
-                },
-                WindowEvent::CursorMoved {
-                    device_id: _,
-                    position,
-                    ..
-                } => {
-                    mouse_position.x = position.x as i32;
-                    mouse_position.y = position.y as i32;
-                    match mouse_button {
-                        CameraMouseButton::None => (),
-                        _ => camera.process_mouse_movement(mouse_position, mouse_button, mouse_modifiers),
-                    }
-                }
-                _ => (),
             }
-        }
+            WindowEvent::MouseInput {
+                device_id: _,
+                state,
+                button,
+                ..
+            } => {
+                mouse_button = CameraMouseButton::None;
+                if state == ElementState::Pressed {
+                    match button {
+                        MouseButton::Left => mouse_button = CameraMouseButton::Left,
+                        MouseButton::Middle => mouse_button = CameraMouseButton::Middle,
+                        MouseButton::Right => mouse_button = CameraMouseButton::Right,
+                        _ => (),
+                    }
+                }
+                camera.set_mouse_position(mouse_position);
+            }
+            WindowEvent::ModifiersChanged(modifiers) => match modifiers {
+                ModifiersState::ALT => mouse_modifiers = MouseModifierFlags::Alt,
+                ModifiersState::CTRL => mouse_modifiers = MouseModifierFlags::Ctrl,
+                ModifiersState::SHIFT => mouse_modifiers = MouseModifierFlags::Shift,
+                _ => mouse_modifiers = MouseModifierFlags::None,
+            },
+            WindowEvent::CursorMoved {
+                device_id: _,
+                position,
+                ..
+            } => {
+                mouse_position.x = position.x as i32;
+                mouse_position.y = position.y as i32;
+                match mouse_button {
+                    CameraMouseButton::None => (),
+                    _ => {
+                        camera.process_mouse_movement(mouse_position, mouse_button, mouse_modifiers)
+                    }
+                }
+            }
+            _ => (),
+        },
         Event::RedrawEventsCleared => {
             previous_frame_end.as_mut().unwrap().cleanup_finished();
             if recreate_swapchain {
