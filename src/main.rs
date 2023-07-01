@@ -11,6 +11,7 @@ fn main() {
     let instance = vulkano_wrapper::get_instance();
     let event_loop = EventLoop::new();
     let surface = WindowBuilder::new()
+        .with_title("Vulkano 3D Model Viewer")
         .build_vk_surface(&event_loop, instance.clone())
         .unwrap();
     let (physical_device, device, queue) = vulkano_wrapper::instantiate_device(&instance, &surface);
