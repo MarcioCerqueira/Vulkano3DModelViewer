@@ -9,6 +9,22 @@ use winit::event_loop::ControlFlow;
 
 use crate::camera::{Camera, CameraMouseButton, CameraMovement, MouseModifierFlags};
 
+pub struct MouseHandler {
+    pub button: CameraMouseButton,
+    pub modifiers: MouseModifierFlags,
+    pub position: Point2<i32>,
+}
+
+impl MouseHandler {
+    pub fn new() -> MouseHandler {
+        MouseHandler {
+            button: CameraMouseButton::None,
+            modifiers: MouseModifierFlags::None,
+            position: Point2::new(0, 0),
+        }
+    }
+}
+
 fn exit_window(control_flow: &mut ControlFlow) {
     *control_flow = ControlFlow::Exit;
 }
@@ -62,15 +78,17 @@ fn process_mouse_modifiers(modifiers: ModifiersState, mouse_modifiers: &mut Mous
 fn process_cursor_movement(
     position: PhysicalPosition<f64>,
     camera: &mut Camera,
-    mouse_button: &CameraMouseButton,
-    mouse_position: &mut Point2<i32>,
-    mouse_modifiers: &mut MouseModifierFlags,
+    mouse_handler: &mut MouseHandler,
 ) {
-    mouse_position.x = position.x as i32;
-    mouse_position.y = position.y as i32;
-    match mouse_button {
+    mouse_handler.position.x = position.x as i32;
+    mouse_handler.position.y = position.y as i32;
+    match mouse_handler.button {
         CameraMouseButton::None => (),
-        _ => camera.process_mouse_movement(*mouse_position, *mouse_button, *mouse_modifiers),
+        _ => camera.process_mouse_movement(
+            mouse_handler.position,
+            mouse_handler.button,
+            mouse_handler.modifiers,
+        ),
     }
 }
 
@@ -88,9 +106,7 @@ pub fn process_event(
     control_flow: &mut ControlFlow,
     has_window_resized: &mut bool,
     camera: &mut Camera,
-    mouse_button: &mut CameraMouseButton,
-    mouse_position: &mut Point2<i32>,
-    mouse_modifiers: &mut MouseModifierFlags,
+    mouse_handler: &mut MouseHandler,
 ) {
     match event {
         WindowEvent::CloseRequested => exit_window(control_flow),
@@ -105,21 +121,21 @@ pub fn process_event(
             state,
             button,
             ..
-        } => process_mouse_input(state, button, camera, mouse_button, mouse_position),
+        } => process_mouse_input(
+            state,
+            button,
+            camera,
+            &mut mouse_handler.button,
+            &mut mouse_handler.position,
+        ),
         WindowEvent::ModifiersChanged(modifiers) => {
-            process_mouse_modifiers(modifiers, mouse_modifiers)
+            process_mouse_modifiers(modifiers, &mut mouse_handler.modifiers)
         }
         WindowEvent::CursorMoved {
             device_id: _,
             position,
             ..
-        } => process_cursor_movement(
-            position,
-            camera,
-            mouse_button,
-            mouse_position,
-            mouse_modifiers,
-        ),
+        } => process_cursor_movement(position, camera, mouse_handler),
         WindowEvent::MouseWheel {
             device_id: _,
             delta,

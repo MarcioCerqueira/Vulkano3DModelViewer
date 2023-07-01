@@ -36,8 +36,9 @@ use winit::event::Event;
 use winit::event_loop::EventLoop;
 use winit::window::Window;
 
-use crate::camera::{Camera, CameraMouseButton, MouseModifierFlags};
+use crate::camera::Camera;
 use crate::vulkano_wrapper::shader::vs;
+use crate::window::MouseHandler;
 use memory_allocator::MemoryAllocator;
 
 use self::model::VulkanoModel;
@@ -420,18 +421,14 @@ pub fn run_event_loop(
         get_viewport(None),
     );
 
-    let mut mouse_button = CameraMouseButton::None;
-    let mut mouse_modifiers = MouseModifierFlags::None;
-    let mut mouse_position = Point2::new(0, 0);
+    let mut mouse_handler = MouseHandler::new();
     event_loop.run(move |event, _, control_flow| match event {
         Event::WindowEvent { event, .. } => crate::window::process_event(
             event,
             control_flow,
             &mut recreate_swapchain,
             &mut camera,
-            &mut mouse_button,
-            &mut mouse_position,
-            &mut mouse_modifiers,
+            &mut mouse_handler,
         ),
         Event::RedrawEventsCleared => {
             previous_frame_end.as_mut().unwrap().cleanup_finished();
