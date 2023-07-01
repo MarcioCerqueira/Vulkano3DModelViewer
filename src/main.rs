@@ -18,7 +18,7 @@ fn main() {
 
     let model = model::Model::new("models/viking_room.obj", "textures/viking_room.png");
     let mut image_builder =
-        vulkano_wrapper::create_command_buffer_builder(&memory_allocator, &queue);
+        vulkano_wrapper::command_buffer::create_command_buffer_builder(&memory_allocator, &queue);
     let vulkano_model =
         vulkano_wrapper::model::VulkanoModel::new(model, &memory_allocator, &mut image_builder);
 
