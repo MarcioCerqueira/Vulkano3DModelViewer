@@ -16,7 +16,8 @@ pub enum CameraMovement {
     Right,
 }
 
-pub enum MouseButton {
+#[derive(Clone, Copy)]
+pub enum CameraMouseButton {
     None,
     Left,
     Middle,
@@ -33,7 +34,7 @@ pub enum Action {
 
 bitflags! {
     #[derive(Clone, Copy, PartialEq)]
-    struct MouseModifierFlags: u32 {
+    pub struct MouseModifierFlags: u32 {
         const None = 0b00000000;
         const Shift = 0b00000001;
         const Ctrl = 0b00000010;
@@ -45,7 +46,6 @@ pub struct Camera {
     eye: Point3<f32>,
     center: Point3<f32>,
     up: Vector3<f32>,
-    roll: f32, // Rotation around the Z axis in RAD
     matrix: Matrix4<f32>,
     window_size: Point2<i32>,
     speed: f32,
@@ -66,7 +66,6 @@ impl Camera {
             eye: camera_position,
             center: center_position,
             up: up_vector,
-            roll: 0.0,
             matrix: Matrix4::new(
                 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
             ),
@@ -86,25 +85,26 @@ impl Camera {
         self.window_size = window_size;
     }
 
+    pub fn set_mouse_position(&mut self, mouse_position: Point2<i32>) {
+        self.mouse_position = mouse_position;
+    }
+
     pub fn get_eye(&self) -> Point3<f32> {
         self.eye
     }
 
     fn update(camera: &mut Camera) {
         camera.matrix = Matrix4::look_at_rh(camera.eye, camera.center, camera.up);
-        if !camera.roll.is_zero() {
-            camera.matrix = camera.matrix * Matrix4::from_angle_z(Rad(camera.roll))
-        }
     }
 
-    fn process_mouse_movement(
+    pub fn process_mouse_movement(
         &mut self,
         position: Point2<i32>,
-        mouse_button: MouseButton,
+        mouse_button: CameraMouseButton,
         modifiers: MouseModifierFlags,
-    ) -> Action {
+    ) {
         let current_action = match mouse_button {
-            MouseButton::Left => {
+            CameraMouseButton::Left => {
                 if ((modifiers & MouseModifierFlags::Ctrl != MouseModifierFlags::None)
                     && (modifiers & MouseModifierFlags::Shift != MouseModifierFlags::None))
                     || (modifiers & MouseModifierFlags::Alt != MouseModifierFlags::None)
@@ -126,12 +126,11 @@ impl Camera {
                     }
                 }
             }
-            MouseButton::Middle => Action::Pan,
-            MouseButton::Right => Action::Dolly,
+            CameraMouseButton::Middle => Action::Pan,
+            CameraMouseButton::Right => Action::Dolly,
             _ => Action::None,
         };
         self.motion(position, &current_action);
-        current_action
     }
 
     fn motion(&mut self, position: Point2<i32>, action: &Action) {
@@ -159,11 +158,6 @@ impl Camera {
         }
         Self::update(self);
         self.mouse_position = position;
-    }
-
-    fn set_roll(&mut self, roll: f32) {
-        self.roll = roll;
-        Self::update(self);
     }
 
     fn process_mouse_scroll(&mut self, value: i32) {
