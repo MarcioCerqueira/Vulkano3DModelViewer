@@ -5,6 +5,7 @@ use winit::window::WindowBuilder;
 pub mod camera;
 pub mod model;
 pub mod vulkano_wrapper;
+pub mod window;
 
 fn main() {
     let instance = vulkano_wrapper::get_instance();
