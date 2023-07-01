@@ -32,7 +32,9 @@ use vulkano::swapchain::{
 use vulkano::sync::{self, FlushError, GpuFuture};
 use vulkano::VulkanLibrary;
 
-use winit::event::{ElementState, Event, ModifiersState, MouseButton, VirtualKeyCode, WindowEvent};
+use winit::event::{
+    ElementState, Event, ModifiersState, MouseButton, MouseScrollDelta, VirtualKeyCode, WindowEvent,
+};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::Window;
 
@@ -484,6 +486,16 @@ pub fn run_event_loop(
                     }
                 }
             }
+            WindowEvent::MouseWheel {
+                device_id: _,
+                delta,
+                ..
+            } => match delta {
+                MouseScrollDelta::LineDelta(_x, y) => {
+                    camera.process_mouse_scroll(y as i32);
+                }
+                _ => (),
+            },
             _ => (),
         },
         Event::RedrawEventsCleared => {

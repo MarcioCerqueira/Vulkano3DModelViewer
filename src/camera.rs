@@ -160,7 +160,7 @@ impl Camera {
         self.mouse_position = position;
     }
 
-    fn process_mouse_scroll(&mut self, value: i32) {
+    pub fn process_mouse_scroll(&mut self, value: i32) {
         let f_value = value as f32;
         let mut dx = f_value * f_value.abs() / self.window_size.x as f32;
 
