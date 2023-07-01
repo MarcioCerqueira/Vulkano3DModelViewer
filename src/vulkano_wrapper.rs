@@ -1,3 +1,5 @@
+use cgmath::{Point2, Point3, Vector3};
+
 use std::sync::Arc;
 
 use vulkano::buffer::{BufferContents, Subbuffer};
@@ -30,11 +32,12 @@ use vulkano::swapchain::{
 use vulkano::sync::{self, FlushError, GpuFuture};
 use vulkano::VulkanLibrary;
 
-use winit::event::{Event, WindowEvent};
+use winit::event::{ElementState, Event, VirtualKeyCode, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::Window;
 
 use crate::camera::Camera;
+use crate::camera::CameraMovement;
 use crate::vulkano_wrapper::shader::vs;
 use memory_allocator::MemoryAllocator;
 
@@ -265,13 +268,13 @@ fn get_command_buffer(
     vulkano_model: &VulkanoModel,
     device: &Arc<Device>,
     memory_allocator: &MemoryAllocator,
-    aspect_ratio: f32,
+    camera: &Camera,
 ) -> Arc<PrimaryAutoCommandBuffer> {
     let mut builder = create_command_buffer_builder(memory_allocator, queue);
     let persistent_descriptor_set = create_persistent_descriptor_set(
         &memory_allocator,
         &pipeline,
-        aspect_ratio,
+        camera,
         &vulkano_model,
         device.clone(),
     );
@@ -337,14 +340,15 @@ fn create_sampler(device: Arc<Device>) -> Arc<Sampler> {
 
 fn create_uniform_buffer_object(
     memory_allocator: &MemoryAllocator,
-    aspect_ratio: f32,
+    camera: &Camera,
 ) -> Subbuffer<vs::UniformBufferObject> {
-    let camera = Camera {};
-    let uniform_data = vs::UniformBufferObject {
+    let mut uniform_data = vs::UniformBufferObject {
         model: camera.get_model_matrix().into(),
         view: camera.get_view_matrix().into(),
-        projection: camera.get_projection_matrix(aspect_ratio).into(),
+        projection: camera.get_projection_matrix().into(),
+        camera_position: camera.get_eye().into(),
     };
+    uniform_data.projection[1][1] = uniform_data.projection[1][1] * -1.0;
     let subbuffer = memory_allocator.subbuffer.allocate_sized().unwrap();
     *subbuffer.write().unwrap() = uniform_data;
     subbuffer
@@ -353,7 +357,7 @@ fn create_uniform_buffer_object(
 fn create_persistent_descriptor_set(
     memory_allocator: &MemoryAllocator,
     pipeline: &Arc<GraphicsPipeline>,
-    aspect_ratio: f32,
+    camera: &Camera,
     vulkano_model: &VulkanoModel,
     device: Arc<Device>,
 ) -> Arc<PersistentDescriptorSet> {
@@ -361,10 +365,7 @@ fn create_persistent_descriptor_set(
         &memory_allocator.descriptor_set,
         pipeline.layout().set_layouts().get(0).unwrap().clone(),
         [
-            WriteDescriptorSet::buffer(
-                0,
-                create_uniform_buffer_object(&memory_allocator, aspect_ratio),
-            ),
+            WriteDescriptorSet::buffer(0, create_uniform_buffer_object(&memory_allocator, camera)),
             WriteDescriptorSet::image_view_sampler(
                 1,
                 vulkano_model.texture_buffer.clone(),
@@ -388,6 +389,16 @@ pub fn run_event_loop(
     >,
     memory_allocator: MemoryAllocator,
 ) {
+    let mut camera = Camera::new(
+        Point3::new(2.33, 1.40, 1.72),
+        Point3::new(-0.06, -0.08, 0.17),
+        Vector3::new(-0.42337, -0.228691, 0.876617),
+    );
+    let viewport = get_viewport(None);
+    camera.set_window_size(Point2::new(
+        viewport.dimensions[0] as i32,
+        viewport.dimensions[1] as i32,
+    ));
     let mut recreate_swapchain = false;
     let mut previous_frame_end = Some(
         image_builder
@@ -411,18 +422,27 @@ pub fn run_event_loop(
     );
 
     event_loop.run(move |event, _, control_flow| match event {
-        Event::WindowEvent {
-            event: WindowEvent::CloseRequested,
-            ..
-        } => {
-            *control_flow = ControlFlow::Exit;
-        }
-        Event::WindowEvent {
-            event: WindowEvent::Resized(_),
-            ..
-        } => {
-            recreate_swapchain = true;
-        }
+        Event::WindowEvent { event, .. } => match event {
+            WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
+            WindowEvent::Resized(_) => recreate_swapchain = true,
+            WindowEvent::KeyboardInput {
+                device_id, input, ..
+            } => {
+                if input.state == ElementState::Pressed {
+                    match input.virtual_keycode {
+                        Some(VirtualKeyCode::W) => camera.process_keyboard(CameraMovement::Forward),
+                        Some(VirtualKeyCode::S) => {
+                            camera.process_keyboard(CameraMovement::Backward)
+                        }
+                        Some(VirtualKeyCode::A) => camera.process_keyboard(CameraMovement::Left),
+                        Some(VirtualKeyCode::D) => camera.process_keyboard(CameraMovement::Right),
+                        Some(VirtualKeyCode::C) => camera.print_camera_data(),
+                        _ => (),
+                    }
+                }
+            }
+            _ => (),
+        },
         Event::RedrawEventsCleared => {
             previous_frame_end.as_mut().unwrap().cleanup_finished();
             if recreate_swapchain {
@@ -461,6 +481,11 @@ pub fn run_event_loop(
                 recreate_swapchain = true;
             }
 
+            camera.set_window_size(Point2::new(
+                swapchain.image_extent()[0] as i32,
+                swapchain.image_extent()[1] as i32,
+            ));
+
             let command_buffer = get_command_buffer(
                 &queue,
                 &pipeline,
@@ -468,7 +493,7 @@ pub fn run_event_loop(
                 &vulkano_model,
                 &device.clone(),
                 &memory_allocator,
-                swapchain.image_extent()[0] as f32 / swapchain.image_extent()[1] as f32,
+                &camera,
             );
 
             let future = previous_frame_end
