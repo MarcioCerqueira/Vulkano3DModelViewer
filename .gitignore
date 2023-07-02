@@ -17,3 +17,10 @@ Cargo.lock
 # Added by cargo
 
 /target
+
+# Model and texture files
+
+*.obj
+*.mtl
+*.jpg
+*.png

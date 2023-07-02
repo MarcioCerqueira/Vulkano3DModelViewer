@@ -13,7 +13,7 @@ use vulkano::memory::allocator::{AllocationCreateInfo, MemoryUsage};
 
 pub struct VulkanoModel {
     pub vertex_buffer: Subbuffer<[CustomVertex]>,
-    pub index_buffer: Subbuffer<[u16]>,
+    pub index_buffer: Subbuffer<[u32]>,
     pub texture_buffer: Arc<ImageView<ImmutableImage>>,
 }
 
@@ -36,7 +36,7 @@ fn create_vertex_buffer(
     .unwrap()
 }
 
-fn create_index_buffer(indices: Vec<u16>, memory_allocator: &MemoryAllocator) -> Subbuffer<[u16]> {
+fn create_index_buffer(indices: Vec<u32>, memory_allocator: &MemoryAllocator) -> Subbuffer<[u32]> {
     Buffer::from_iter(
         &memory_allocator.standard,
         BufferCreateInfo {
