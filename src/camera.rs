@@ -47,7 +47,7 @@ pub struct Camera {
     center: Point3<f32>,
     up: Vector3<f32>,
     matrix: Matrix4<f32>,
-    window_size: Point2<i32>,
+    window_size: Point2<u32>,
     speed: f32,
     movement_speed: f32,
     zoom: f32,
@@ -81,7 +81,7 @@ impl Camera {
         camera
     }
 
-    pub fn set_window_size(&mut self, window_size: Point2<i32>) {
+    pub fn set_window_size(&mut self, window_size: Point2<u32>) {
         self.window_size = window_size;
     }
 
@@ -91,6 +91,10 @@ impl Camera {
 
     pub fn get_eye(&self) -> Point3<f32> {
         self.eye
+    }
+
+    pub fn get_window_size(&self) -> Point2<u32> {
+        self.window_size
     }
 
     fn update(camera: &mut Camera) {
@@ -309,14 +313,14 @@ impl Camera {
 
     fn trackball(&mut self, position: Point2<i32>) {
         let p_zero = Vector2::new(
-            2.0 * (self.mouse_position.x - self.window_size.x / 2) as f32
+            2.0 * (self.mouse_position.x - self.window_size.x as i32 / 2) as f32
                 / self.window_size.x as f32,
-            2.0 * (self.window_size.y / 2 - self.mouse_position.y) as f32
+            2.0 * (self.window_size.y as i32 / 2 - self.mouse_position.y) as f32
                 / self.window_size.y as f32,
         );
         let p_one = Vector2::new(
-            2.0 * (position.x - self.window_size.x / 2) as f32 / self.window_size.x as f32,
-            2.0 * (self.window_size.y / 2 - position.y) as f32 / self.window_size.y as f32,
+            2.0 * (position.x - self.window_size.x as i32 / 2) as f32 / self.window_size.x as f32,
+            2.0 * (self.window_size.y as i32 / 2 - position.y) as f32 / self.window_size.y as f32,
         );
         // determine the z coordinate on the sphere
         let p_tb_zero = Vector3::new(p_zero.x, p_zero.y, self.project_onto_tb_sphere(p_zero));

@@ -1,4 +1,4 @@
-use cgmath::{Point2, Point3, Vector3};
+use cgmath::Point2;
 
 use std::sync::Arc;
 
@@ -255,13 +255,10 @@ fn get_window(surface: &Arc<Surface>) -> Arc<Window> {
         .unwrap()
 }
 
-fn get_viewport(dimensions: Option<[f32; 2]>) -> Viewport {
+fn get_viewport(dimensions: [f32; 2]) -> Viewport {
     Viewport {
         origin: [0.0, 0.0],
-        dimensions: match dimensions {
-            None => [1024.0, 1024.0],
-            Some(value) => value,
-        },
+        dimensions: dimensions,
         depth_range: 0.0..1.0,
     }
 }
@@ -278,17 +275,8 @@ pub fn run_event_loop(
         Arc<StandardCommandBufferAllocator>,
     >,
     memory_allocator: MemoryAllocator,
+    mut camera: Camera,
 ) {
-    let mut camera = Camera::new(
-        Point3::new(2.33, 1.40, 1.72),
-        Point3::new(-0.06, -0.08, 0.17),
-        Vector3::new(-0.42337, -0.228691, 0.876617),
-    );
-    let viewport = get_viewport(None);
-    camera.set_window_size(Point2::new(
-        viewport.dimensions[0] as i32,
-        viewport.dimensions[1] as i32,
-    ));
     let mut recreate_swapchain = false;
     let mut previous_frame_end = Some(
         image_builder
@@ -308,7 +296,10 @@ pub fn run_event_loop(
         vertex_shader.clone(),
         fragment_shader.clone(),
         render_pass.clone(),
-        get_viewport(None),
+        get_viewport([
+            camera.get_window_size().x as f32,
+            camera.get_window_size().y as f32,
+        ]),
     );
 
     let mut mouse_handler = MouseHandler::new();
@@ -334,13 +325,16 @@ pub fn run_event_loop(
                 };
                 swapchain = new_swapchain;
                 framebuffers = get_framebuffers(&new_images, &render_pass, &memory_allocator);
-
+                camera.set_window_size(Point2::new(
+                    get_window(&surface).inner_size().width,
+                    get_window(&surface).inner_size().height,
+                ));
                 pipeline = get_pipeline(
                     device.clone(),
                     vertex_shader.clone(),
                     fragment_shader.clone(),
                     render_pass.clone(),
-                    get_viewport(Some(get_window(&surface).inner_size().into())),
+                    get_viewport(get_window(&surface).inner_size().into()),
                 );
             }
 
@@ -357,11 +351,6 @@ pub fn run_event_loop(
             if suboptimal {
                 recreate_swapchain = true;
             }
-
-            camera.set_window_size(Point2::new(
-                swapchain.image_extent()[0] as i32,
-                swapchain.image_extent()[1] as i32,
-            ));
 
             let command_buffer = command_buffer::get_command_buffer(
                 &queue,
