@@ -1,3 +1,4 @@
+use camera::Camera;
 use cgmath::{Point2, Point3, Vector3};
 use std::env;
 use vulkano_win::VkSurfaceBuild;
@@ -10,14 +11,16 @@ pub mod model;
 pub mod vulkano_wrapper;
 pub mod window;
 
-fn main() {
+fn load_config() -> crate::config::Config {
     let args: Vec<String> = env::args().collect();
     if args.len() != 2 {
         panic!("You need to pass a .json file available in the configs folder!");
     }
     let config_filename = &args[1];
-    let config = config::read_file(config_filename);
-    let model = model::Model::new(&config.scene.model_filename, &config.scene.texture_filename);
+    config::read_file(config_filename)
+}
+
+fn config_camera(config: &crate::config::Config) -> Camera {
     let mut camera = crate::camera::Camera::new(
         Point3::new(
             config.scene.camera.position.x,
@@ -39,6 +42,13 @@ fn main() {
         config.window.width as u32,
         config.window.height as u32,
     ));
+    camera
+}
+
+fn main() {
+    let config = load_config();
+    let camera = config_camera(&config);
+    let model = model::Model::new(&config.scene.model_filename, &config.scene.texture_filename);
 
     let instance = vulkano_wrapper::get_instance();
     let event_loop = EventLoop::new();
