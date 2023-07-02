@@ -4,7 +4,7 @@
 
 This repository contains a basic 3D model viewer implemented in Rust using the Vulkano library.
 
-<img src="https://github.com/MarcioCerqueira/vulkano_3d_model_viewer/blob/main/erato.jpg"  width="50%" height="50%">
+<img src="https://github.com/MarcioCerqueira/vulkano_3d_model_viewer/blob/main/erato.jpeg"  width="50%" height="50%">
 
 ## Instructions
 
